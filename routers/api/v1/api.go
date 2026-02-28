@@ -438,7 +438,7 @@ func reqRepoWriter(unitTypes ...unit.Type) func(ctx *context.APIContext) {
 func reqRepoReader(unitType unit.Type) func(ctx *context.APIContext) {
 	return func(ctx *context.APIContext) {
 		if !ctx.Repo.CanRead(unitType) && !ctx.IsUserRepoAdmin() && !ctx.IsUserSiteAdmin() {
-			ctx.APIError(http.StatusForbidden, "user should have specific read permission or be a repo admin or a site admin")
+			ctx.APIErrorNotFound()
 			return
 		}
 	}
@@ -448,7 +448,7 @@ func reqRepoReader(unitType unit.Type) func(ctx *context.APIContext) {
 func reqAnyRepoReader() func(ctx *context.APIContext) {
 	return func(ctx *context.APIContext) {
 		if !ctx.Repo.Permission.HasAnyUnitAccess() && !ctx.IsUserSiteAdmin() {
-			ctx.APIError(http.StatusForbidden, "user should have any permission to read repository or permissions of site admin")
+			ctx.APIErrorNotFound()
 			return
 		}
 	}
@@ -776,6 +776,14 @@ func apiAuth(authMethod auth.Method) func(*context.APIContext) {
 			return
 		}
 		ctx.Doer = ar.Doer
+		if ctx.Doer != nil {
+			doer, err := user_model.GetPossibleUserByID(ctx, ctx.Doer.ID)
+			if err != nil {
+				ctx.APIErrorInternal(err)
+				return
+			}
+			ctx.Doer = doer
+		}
 		ctx.IsSigned = ar.Doer != nil
 		ctx.IsBasicAuth = ar.IsBasicAuth
 	}

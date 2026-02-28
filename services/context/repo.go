@@ -430,8 +430,10 @@ func repoAssignment(ctx *Context, repo *repo_model.Repository) {
 
 	if !ctx.Repo.Permission.HasAnyUnitAccessOrPublicAccess() && !canWriteAsMaintainer(ctx) {
 		if ctx.FormString("go-get") == "1" {
-			EarlyResponseForGoGetMeta(ctx)
-			return
+			if ctx.Repo.Repository.MinTrustLevel <= 0 {
+				EarlyResponseForGoGetMeta(ctx)
+				return
+			}
 		}
 		ctx.NotFound(nil)
 		return

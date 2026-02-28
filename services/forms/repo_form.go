@@ -148,6 +148,8 @@ type RepoSettingForm struct {
 	AllowOnlyContributorsToTrackTime bool
 	EnableIssueDependencies          bool
 
+	Visibility string `form:"visibility"`
+
 	// Signing Settings
 	TrustModel string
 

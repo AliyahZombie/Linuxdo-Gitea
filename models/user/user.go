@@ -109,6 +109,9 @@ type User struct {
 	UpdatedUnix   timeutil.TimeStamp `xorm:"INDEX updated"`
 	LastLoginUnix timeutil.TimeStamp `xorm:"INDEX"`
 
+	DiscourseTrustLevel            int                `xorm:"NOT NULL DEFAULT 0"`
+	DiscourseTrustLevelUpdatedUnix timeutil.TimeStamp `xorm:"NOT NULL DEFAULT 0"`
+
 	// Remember visibility choice for convenience, true for private
 	LastRepoVisibility bool
 	// Maximum repository creation limit, -1 means use global default

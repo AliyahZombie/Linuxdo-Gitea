@@ -373,6 +373,7 @@ func SearchRepositoryCondition(opts SearchRepoOptions) builder.Cond {
 		// isn't in a private or limited organisation.
 		cond = cond.And(
 			builder.Eq{"is_private": false},
+			builder.Lte{"min_trust_level": viewerDiscourseTrustLevel(opts.Actor)},
 			builder.NotIn("owner_id", builder.Select("id").From("`user`").Where(
 				builder.Or(builder.Eq{"visibility": structs.VisibleTypeLimited}, builder.Eq{"visibility": structs.VisibleTypePrivate}),
 			)))
@@ -642,9 +643,24 @@ func SearchRepositoryIDsByCondition(ctx context.Context, cond builder.Cond) ([]i
 		Find(&repoIDs)
 }
 
-func userAllPublicRepoCond(cond builder.Cond, orgVisibilityLimit []structs.VisibleType) builder.Cond {
+func viewerDiscourseTrustLevel(user *user_model.User) int {
+	if user == nil || user.ID <= 0 {
+		return 0
+	}
+	trustLevel := user.DiscourseTrustLevel
+	if trustLevel < 0 {
+		return 0
+	}
+	if trustLevel > 4 {
+		return 4
+	}
+	return trustLevel
+}
+
+func userAllPublicRepoCond(cond builder.Cond, orgVisibilityLimit []structs.VisibleType, trustLevel int) builder.Cond {
 	return cond.Or(builder.And(
 		builder.Eq{"`repository`.is_private": false},
+		builder.Lte{"`repository`.min_trust_level": trustLevel},
 		// Aren't in a private organisation or limited organisation if we're not logged in
 		builder.NotIn("`repository`.owner_id", builder.Select("id").From("`user`").Where(
 			builder.And(
@@ -663,7 +679,7 @@ func AccessibleRepositoryCondition(user *user_model.User, unitType unit.Type) bu
 			orgVisibilityLimit = append(orgVisibilityLimit, structs.VisibleTypeLimited)
 		}
 		// 1. Be able to see all non-private repositories
-		cond = userAllPublicRepoCond(cond, orgVisibilityLimit)
+		cond = userAllPublicRepoCond(cond, orgVisibilityLimit, viewerDiscourseTrustLevel(user))
 	}
 
 	if user != nil {
@@ -689,7 +705,7 @@ func AccessibleRepositoryCondition(user *user_model.User, unitType unit.Type) bu
 			cond = cond.Or(userOrgPublicRepoCond(user.ID))
 		} else if !setting.Service.RequireSignInViewStrict {
 			orgVisibilityLimit := []structs.VisibleType{structs.VisibleTypePrivate, structs.VisibleTypeLimited}
-			cond = userAllPublicRepoCond(cond, orgVisibilityLimit)
+			cond = userAllPublicRepoCond(cond, orgVisibilityLimit, viewerDiscourseTrustLevel(user))
 		}
 	}
 

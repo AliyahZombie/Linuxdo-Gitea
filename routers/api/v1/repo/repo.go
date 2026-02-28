@@ -258,6 +258,7 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 		License:          opt.License,
 		Readme:           opt.Readme,
 		IsPrivate:        opt.Private || setting.Repository.ForcePrivate,
+		MinTrustLevel:    opt.MinTrustLevel,
 		AutoInit:         opt.AutoInit,
 		DefaultBranch:    opt.DefaultBranch,
 		TrustModel:       repo_model.ToTrustModel(opt.TrustModel),
@@ -701,6 +702,7 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 		repo.Website = *opts.Website
 	}
 
+	originalIsPrivate := repo.IsPrivate
 	visibilityChanged := false
 	if opts.Private != nil {
 		// Visibility of forked repository is forced sync with base repository.
@@ -712,7 +714,7 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 			*opts.Private = repo.BaseRepo.IsPrivate
 		}
 
-		visibilityChanged = repo.IsPrivate != *opts.Private
+		visibilityChanged = originalIsPrivate != *opts.Private
 		// when ForcePrivate enabled, you could change public repo to private, but only admin users can change private to public
 		if visibilityChanged && setting.Repository.ForcePrivate && !*opts.Private && !ctx.Doer.IsAdmin {
 			err := errors.New("cannot change private repository to public")
@@ -721,7 +723,48 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 		}
 
 		repo.IsPrivate = *opts.Private
+		if repo.IsPrivate {
+			repo.MinTrustLevel = 0
+		}
 	}
+
+	targetMinTrustLevel := 0
+	minTrustLevelProvided := false
+	if opts.MinTrustLevel != nil {
+		if repo.IsFork {
+			err := errors.New("cannot change the visibility of a forked repository")
+			ctx.APIError(http.StatusUnprocessableEntity, err)
+			return err
+		}
+
+		targetMinTrustLevel = *opts.MinTrustLevel
+		if targetMinTrustLevel < 0 {
+			targetMinTrustLevel = 0
+		}
+		if targetMinTrustLevel > 4 {
+			targetMinTrustLevel = 4
+		}
+		minTrustLevelProvided = true
+
+		if repo.IsPrivate {
+			if opts.Private == nil {
+				if setting.Repository.ForcePrivate && !ctx.Doer.IsAdmin {
+					err := errors.New("cannot change private repository to public")
+					ctx.APIError(http.StatusUnprocessableEntity, err)
+					return err
+				}
+				repo.IsPrivate = false
+			}
+		}
+
+		if repo.IsPrivate {
+			repo.MinTrustLevel = 0
+		} else {
+			repo.MinTrustLevel = targetMinTrustLevel
+		}
+	}
+
+	visibilityChanged = originalIsPrivate != repo.IsPrivate
 
 	if opts.Template != nil {
 		repo.IsTemplate = *opts.Template
@@ -752,6 +795,19 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 	if err := repo_service.UpdateRepository(ctx, repo, visibilityChanged); err != nil {
 		ctx.APIErrorInternal(err)
 		return err
+	}
+
+	if visibilityChanged {
+		if err := repo_service.CheckDaemonExportOK(ctx, repo); err != nil {
+			ctx.APIErrorInternal(err)
+			return err
+		}
+	}
+	if minTrustLevelProvided && !repo.IsPrivate {
+		if err := repo_service.SetRepoMinTrustLevel(ctx, repo, targetMinTrustLevel); err != nil {
+			ctx.APIErrorInternal(err)
+			return err
+		}
 	}
 
 	if updateRepoLicense {

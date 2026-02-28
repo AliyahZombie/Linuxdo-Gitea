@@ -48,15 +48,16 @@ type ExternalWiki struct {
 
 // Repository represents a repository
 type Repository struct {
-	ID          int64  `json:"id"`
-	Owner       *User  `json:"owner"`
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-	Empty       bool   `json:"empty"`
-	Private     bool   `json:"private"`
-	Fork        bool   `json:"fork"`
-	Template    bool   `json:"template"`
+	ID            int64  `json:"id"`
+	Owner         *User  `json:"owner"`
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Description   string `json:"description"`
+	Empty         bool   `json:"empty"`
+	Private       bool   `json:"private"`
+	MinTrustLevel int    `json:"min_trust_level"`
+	Fork          bool   `json:"fork"`
+	Template      bool   `json:"template"`
 	// the original repository if this repository is a fork, otherwise null
 	Parent              *Repository `json:"parent,omitempty"`
 	Mirror              bool        `json:"mirror"`
@@ -134,6 +135,9 @@ type CreateRepoOption struct {
 	Description string `json:"description" binding:"MaxSize(2048)"`
 	// Whether the repository is private
 	Private bool `json:"private"`
+	// Minimum trust level required to view this repository when it is public.
+	// 0 means visible to anyone. 1..4 correspond to TL1..TL4.
+	MinTrustLevel *int `json:"min_trust_level,omitempty"`
 	// Label-Set to use
 	IssueLabels string `json:"issue_labels" binding:"MaxSize(255)"`
 	// Whether the repository should be auto-initialized?
@@ -170,6 +174,9 @@ type EditRepoOption struct {
 	// Note: you will get a 422 error if the organization restricts changing repository visibility to organization
 	// owners and a non-owner tries to change the value of private.
 	Private *bool `json:"private,omitempty"`
+	// Minimum trust level required to view this repository when it is public.
+	// 0 means visible to anyone. 1..4 correspond to TL1..TL4.
+	MinTrustLevel *int `json:"min_trust_level,omitempty"`
 	// either `true` to make this repository a template or `false` to make it a normal repository
 	Template *bool `json:"template,omitempty"`
 	// either `true` to enable code for this repository or `false` to disable it.

@@ -187,6 +187,7 @@ func innerToRepo(ctx context.Context, repo *repo_model.Repository, permissionInR
 		FullName:                      repo.FullName(),
 		Description:                   repo.Description,
 		Private:                       repo.IsPrivate,
+		MinTrustLevel:                 repo.MinTrustLevel,
 		Template:                      repo.IsTemplate,
 		Empty:                         repo.IsEmpty,
 		Archived:                      repo.IsArchived,

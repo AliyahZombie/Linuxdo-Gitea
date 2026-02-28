@@ -168,7 +168,8 @@ func MakeRepoPublic(ctx context.Context, repo *repo_model.Repository) (err error
 func MakeRepoPrivate(ctx context.Context, repo *repo_model.Repository) (err error) {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		repo.IsPrivate = true
-		if err := repo_model.UpdateRepositoryColsNoAutoTime(ctx, repo, "is_private"); err != nil {
+		repo.MinTrustLevel = 0
+		if err := repo_model.UpdateRepositoryColsNoAutoTime(ctx, repo, "is_private", "min_trust_level"); err != nil {
 			return err
 		}
 
@@ -221,6 +222,32 @@ func MakeRepoPrivate(ctx context.Context, repo *repo_model.Repository) (err erro
 	})
 }
 
+func SetRepoMinTrustLevel(ctx context.Context, repo *repo_model.Repository, minTrustLevel int) (err error) {
+	if minTrustLevel < 0 {
+		minTrustLevel = 0
+	}
+	if minTrustLevel > 4 {
+		minTrustLevel = 4
+	}
+	if repo.MinTrustLevel == minTrustLevel {
+		return nil
+	}
+
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		repo.MinTrustLevel = minTrustLevel
+		if err := repo_model.UpdateRepositoryColsNoAutoTime(ctx, repo, "min_trust_level"); err != nil {
+			return err
+		}
+
+		if err := CheckDaemonExportOK(ctx, repo); err != nil {
+			return err
+		}
+
+		issue_indexer.UpdateRepoIndexer(ctx, repo.ID)
+		return nil
+	})
+}
+
 // GetAttachmentLinkedTypeAndRepoID returns the linked type and repository id of attachment if any
 func GetAttachmentLinkedTypeAndRepoID(ctx context.Context, a *repo_model.Attachment) (unit.Type, int64, error) {
 	if a.IssueID != 0 {
@@ -259,7 +286,7 @@ func CheckDaemonExportOK(ctx context.Context, repo *repo_model.Repository) error
 		return err
 	}
 
-	isPublic := !repo.IsPrivate && repo.Owner.Visibility == structs.VisibleTypePublic
+	isPublic := !repo.IsPrivate && repo.MinTrustLevel <= 0 && repo.Owner.Visibility == structs.VisibleTypePublic
 	if !isPublic && isExist {
 		if err = gitrepo.RemoveRepoFileOrDir(ctx, repo, daemonExportFile); err != nil {
 			log.Error("Failed to remove %s: %v", daemonExportFile, err)

@@ -184,10 +184,11 @@ type Repository struct {
 	NumClosedActionRuns int `xorm:"NOT NULL DEFAULT 0"`
 	NumOpenActionRuns   int `xorm:"-"`
 
-	IsPrivate  bool `xorm:"INDEX"`
-	IsEmpty    bool `xorm:"INDEX"`
-	IsArchived bool `xorm:"INDEX"`
-	IsMirror   bool `xorm:"INDEX"`
+	IsPrivate     bool `xorm:"INDEX"`
+	MinTrustLevel int  `xorm:"NOT NULL DEFAULT 0 INDEX"`
+	IsEmpty       bool `xorm:"INDEX"`
+	IsArchived    bool `xorm:"INDEX"`
+	IsMirror      bool `xorm:"INDEX"`
 
 	Status RepositoryStatus `xorm:"NOT NULL DEFAULT 0"`
 

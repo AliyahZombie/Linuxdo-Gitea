@@ -171,6 +171,31 @@ func TestGetUserRepoPermission(t *testing.T) {
 	require.NoError(t, db.Insert(ctx, team))
 	require.NoError(t, db.Insert(ctx, &organization.TeamUser{OrgID: org.ID, TeamID: team.ID, UID: user.ID}))
 
+	t.Run("PublicRepoWithMinTrustLevel", func(t *testing.T) {
+		repoTL := *repo32
+		repoTL.MinTrustLevel = 1
+
+		t.Run("AnonymousDenied", func(t *testing.T) {
+			perm, err := GetUserRepoPermission(ctx, &repoTL, nil)
+			require.NoError(t, err)
+			assert.Equal(t, perm_model.AccessModeNone, perm.AccessMode)
+		})
+
+		t.Run("UserBelowDenied", func(t *testing.T) {
+			perm, err := GetUserRepoPermission(ctx, &repoTL, user)
+			require.NoError(t, err)
+			assert.Equal(t, perm_model.AccessModeNone, perm.AccessMode)
+		})
+
+		t.Run("UserAtLeastRead", func(t *testing.T) {
+			trustedUser := *user
+			trustedUser.DiscourseTrustLevel = 1
+			perm, err := GetUserRepoPermission(ctx, &repoTL, &trustedUser)
+			require.NoError(t, err)
+			assert.Equal(t, perm_model.AccessModeRead, perm.AccessMode)
+		})
+	})
+
 	t.Run("DoerInTeamWithNoRepo", func(t *testing.T) {
 		perm, err := GetUserRepoPermission(ctx, repo32, user)
 		require.NoError(t, err)

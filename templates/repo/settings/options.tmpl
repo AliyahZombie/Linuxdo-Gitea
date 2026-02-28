@@ -767,18 +767,22 @@
 						<div class="flex-item-main">
 							<div class="flex-item-title">{{ctx.Locale.Tr "repo.visibility"}}</div>
 							{{if .Repository.IsPrivate}}
-								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.public.text"}}</div>
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.private"}}</div>
+							{{else if eq .Repository.MinTrustLevel 0}}
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.public"}}</div>
+							{{else if eq .Repository.MinTrustLevel 1}}
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.tl1"}}</div>
+							{{else if eq .Repository.MinTrustLevel 2}}
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.tl2"}}</div>
+							{{else if eq .Repository.MinTrustLevel 3}}
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.tl3"}}</div>
 							{{else}}
-								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.private.text"}}</div>
+								<div class="flex-item-body">{{ctx.Locale.Tr "repo.settings.visibility.current.tl4"}}</div>
 							{{end}}
 						</div>
 						<div class="flex-item-trailing">
 							<button class="ui basic red show-modal button" data-modal="#visibility-repo-modal">
-								{{if .Repository.IsPrivate}}
-									{{ctx.Locale.Tr "repo.settings.visibility.public.button"}}
-								{{else}}
-									{{ctx.Locale.Tr "repo.settings.visibility.private.button"}}
-								{{end}}
+								{{ctx.Locale.Tr "repo.settings.visibility.change.button"}}
 							</button>
 						</div>
 					</div>
@@ -1011,24 +1015,26 @@
 				{{ctx.Locale.Tr "repo.visibility"}}
 			</div>
 			<div class="content">
-					{{if .Repository.IsPrivate}}
-						<p>{{ctx.Locale.Tr "repo.settings.visibility.public.bullet_title"}}</p>
-						<ul>
-							<li>{{ctx.Locale.Tr "repo.settings.visibility.public.bullet_one"}}</li>
-						</ul>
-					{{else}}
-						<p>{{ctx.Locale.Tr "repo.settings.visibility.private.bullet_title"}}</p>
-						<ul>
-							<li>{{ctx.Locale.Tr "repo.settings.visibility.private.bullet_one"}}</li>
-							<li>{{ctx.Locale.Tr "repo.settings.visibility.private.bullet_two"}}{{if .Repository.NumForks}}<span class="tw-text-red">{{ctx.Locale.Tr "repo.visibility_fork_helper"}}</span>{{end}}</li>
-						</ul>
-					{{end}}
+				<form class="ui form" action="{{.Link}}" method="post">
+					<input type="hidden" name="action" value="visibility">
+					<input type="hidden" name="repo_id" value="{{.Repository.ID}}">
+					<div class="field">
+						<label>{{ctx.Locale.Tr "repo.visibility"}}</label>
+						<select class="ui dropdown" name="visibility">
+							<option value="public" {{if and (not .Repository.IsPrivate) (eq .Repository.MinTrustLevel 0)}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.public"}}</option>
+							<option value="tl1" {{if and (not .Repository.IsPrivate) (eq .Repository.MinTrustLevel 1)}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl1"}}</option>
+							<option value="tl2" {{if and (not .Repository.IsPrivate) (eq .Repository.MinTrustLevel 2)}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl2"}}</option>
+							<option value="tl3" {{if and (not .Repository.IsPrivate) (eq .Repository.MinTrustLevel 3)}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl3"}}</option>
+							<option value="tl4" {{if and (not .Repository.IsPrivate) (ge .Repository.MinTrustLevel 4)}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl4"}}</option>
+							<option value="private" {{if .Repository.IsPrivate}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.private"}}</option>
+						</select>
+					</div>
+					<div class="ui warning message">
+						{{ctx.Locale.Tr "repo.settings.visibility.notice"}}
+					</div>
+					{{template "base/modal_actions_confirm" .}}
+				</form>
 			</div>
-			<form action="{{.Link}}" method="post">
-				<input type="hidden" name="action" value="visibility">
-				<input type="hidden" name="repo_id" value="{{.Repository.ID}}">
-				{{template "base/modal_actions_confirm" .}}
-			</form>
 		</div>
 	{{end}}
 

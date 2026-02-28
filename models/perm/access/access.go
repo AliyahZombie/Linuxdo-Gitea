@@ -48,7 +48,7 @@ func accessLevel(ctx context.Context, user *user_model.User, repo *repo_model.Re
 	}
 
 	repoIsFullyPublic := !setting.Service.RequireSignInViewStrict && repo.Owner.Visibility == structs.VisibleTypePublic && !repo.IsPrivate
-	if (restricted && repoIsFullyPublic) || (!restricted && !repo.IsPrivate) {
+	if trustSatisfied(repo, user) && ((restricted && repoIsFullyPublic) || (!restricted && !repo.IsPrivate)) {
 		mode = perm.AccessModeRead
 	}
 

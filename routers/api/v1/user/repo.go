@@ -9,6 +9,7 @@ import (
 	access_model "code.gitea.io/gitea/models/perm/access"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/optional"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/routers/api/v1/utils"
 	"code.gitea.io/gitea/services/context"
@@ -19,9 +20,11 @@ import (
 func listUserRepos(ctx *context.APIContext, u *user_model.User, private bool) {
 	opts := utils.GetListOptions(ctx)
 
-	repos, count, err := repo_model.GetUserRepositories(ctx, repo_model.SearchRepoOptions{
-		Actor:       u,
+	repos, count, err := repo_model.SearchRepository(ctx, repo_model.SearchRepoOptions{
+		Actor:       ctx.Doer,
+		OwnerID:     u.ID,
 		Private:     private,
+		Collaborate: optional.Some(false),
 		ListOptions: opts,
 		OrderBy:     "id ASC",
 	})
@@ -35,16 +38,14 @@ func listUserRepos(ctx *context.APIContext, u *user_model.User, private bool) {
 		return
 	}
 
-	apiRepos := make([]*api.Repository, 0, len(repos))
+	apiRepos := make([]*api.Repository, len(repos))
 	for i := range repos {
 		permission, err := access_model.GetUserRepoPermission(ctx, repos[i], ctx.Doer)
 		if err != nil {
 			ctx.APIErrorInternal(err)
 			return
 		}
-		if ctx.IsSigned && ctx.Doer.IsAdmin || permission.HasAnyUnitAccess() {
-			apiRepos = append(apiRepos, convert.ToRepo(ctx, repos[i], permission))
-		}
+		apiRepos[i] = convert.ToRepo(ctx, repos[i], permission)
 	}
 
 	ctx.SetLinkHeader(int(count), opts.PageSize)

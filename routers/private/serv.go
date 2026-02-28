@@ -319,6 +319,7 @@ func ServCommand(ctx *context.PrivateContext) {
 	if repoExist &&
 		(mode > perm.AccessModeRead ||
 			repo.IsPrivate ||
+			repo.MinTrustLevel > 0 ||
 			owner.Visibility.IsPrivate() ||
 			(user != nil && user.IsRestricted) || // user will be nil if the key is a deploykey
 			setting.Service.RequireSignInViewStrict) {

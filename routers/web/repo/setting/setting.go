@@ -1007,18 +1007,49 @@ func handleSettingsPostVisibility(ctx *context.Context) {
 		return
 	}
 
-	var err error
+	visibility := strings.ToLower(strings.TrimSpace(form.Visibility))
+	if visibility == "" {
+		visibility = "public"
+	}
+
+	targetIsPrivate := false
+	targetMinTrustLevel := 0
+	switch visibility {
+	case "public":
+		targetMinTrustLevel = 0
+	case "tl1":
+		targetMinTrustLevel = 1
+	case "tl2":
+		targetMinTrustLevel = 2
+	case "tl3":
+		targetMinTrustLevel = 3
+	case "tl4":
+		targetMinTrustLevel = 4
+	case "private":
+		targetIsPrivate = true
+	default:
+		ctx.RenderWithErr(ctx.Tr("repo.settings.visibility.invalid"), tplSettingsOptions, form)
+		return
+	}
 
 	// when ForcePrivate enabled, you could change public repo to private, but only admin users can change private to public
-	if setting.Repository.ForcePrivate && repo.IsPrivate && !ctx.Doer.IsAdmin {
+	if setting.Repository.ForcePrivate && repo.IsPrivate && !ctx.Doer.IsAdmin && !targetIsPrivate {
 		ctx.RenderWithErr(ctx.Tr("form.repository_force_private"), tplSettingsOptions, form)
 		return
 	}
 
-	if repo.IsPrivate {
-		err = repo_service.MakeRepoPublic(ctx, repo)
+	var err error
+	if targetIsPrivate {
+		if !repo.IsPrivate {
+			err = repo_service.MakeRepoPrivate(ctx, repo)
+		}
 	} else {
-		err = repo_service.MakeRepoPrivate(ctx, repo)
+		if repo.IsPrivate {
+			err = repo_service.MakeRepoPublic(ctx, repo)
+		}
+		if err == nil {
+			err = repo_service.SetRepoMinTrustLevel(ctx, repo, targetMinTrustLevel)
+		}
 	}
 
 	if err != nil {

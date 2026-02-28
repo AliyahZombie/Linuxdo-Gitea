@@ -145,7 +145,7 @@ func checkDaemonExport(ctx context.Context, logger log.Logger, autofix bool) err
 			log.Error("Unable to check if %s:%s exists. Error: %v", repo.FullName(), daemonExportFile, err)
 			return err
 		}
-		isPublic := !repo.IsPrivate && repo.Owner.Visibility == structs.VisibleTypePublic
+		isPublic := !repo.IsPrivate && repo.MinTrustLevel <= 0 && repo.Owner.Visibility == structs.VisibleTypePublic
 
 		if isPublic != isExist {
 			numNeedUpdate++

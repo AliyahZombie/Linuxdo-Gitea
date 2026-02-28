@@ -65,6 +65,10 @@ cpu.out
 /custom/*
 !/custom/conf/app.example.ini
 /data
+/data11002
+/data11002/
+/.tmp
+/.tmp/
 /indexers
 /log
 /public/assets/img/avatar

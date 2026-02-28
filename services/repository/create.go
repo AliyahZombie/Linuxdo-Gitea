@@ -45,6 +45,7 @@ type CreateRepoOptions struct {
 	Readme           string
 	DefaultBranch    string
 	IsPrivate        bool
+	MinTrustLevel    *int
 	IsMirror         bool
 	IsTemplate       bool
 	AutoInit         bool
@@ -254,6 +255,20 @@ func CreateRepositoryDirectly(ctx context.Context, doer, owner *user_model.User,
 		DefaultBranch:                   opts.DefaultBranch,
 		DefaultWikiBranch:               setting.Repository.DefaultBranch,
 		ObjectFormatName:                opts.ObjectFormatName,
+	}
+	if repo.IsPrivate {
+		repo.MinTrustLevel = 0
+	} else if opts.MinTrustLevel != nil {
+		minTrustLevel := *opts.MinTrustLevel
+		if minTrustLevel < 0 {
+			minTrustLevel = 0
+		}
+		if minTrustLevel > 4 {
+			minTrustLevel = 4
+		}
+		repo.MinTrustLevel = minTrustLevel
+	} else {
+		repo.MinTrustLevel = 1
 	}
 
 	// 1 - create the repository database operations first

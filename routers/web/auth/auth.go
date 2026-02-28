@@ -186,9 +186,23 @@ func performAutoLogin(ctx *context.Context) bool {
 	return false
 }
 
+func filterLinuxDoOAuth2Providers(providers []oauth2.Provider) []oauth2.Provider {
+	if len(providers) == 0 {
+		return providers
+	}
+	filtered := make([]oauth2.Provider, 0, 1)
+	for _, provider := range providers {
+		if provider.DisplayName() == "linux.do" {
+			filtered = append(filtered, provider)
+		}
+	}
+	return filtered
+}
+
 func prepareSignInPageData(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("sign_in")
-	ctx.Data["OAuth2Providers"], _ = oauth2.GetOAuth2Providers(ctx, optional.Some(true))
+	oauth2Providers, _ := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
+	ctx.Data["OAuth2Providers"] = filterLinuxDoOAuth2Providers(oauth2Providers)
 	ctx.Data["Title"] = ctx.Tr("sign_in")
 	ctx.Data["SignInLink"] = setting.AppSubURL + "/user/login"
 	ctx.Data["PageIsSignIn"] = true
@@ -438,7 +452,7 @@ func SignUp(ctx *context.Context) {
 		return
 	}
 
-	ctx.Data["OAuth2Providers"] = oauth2Providers
+	ctx.Data["OAuth2Providers"] = filterLinuxDoOAuth2Providers(oauth2Providers)
 	context.SetCaptchaData(ctx)
 
 	ctx.Data["PageIsSignUp"] = true
@@ -464,7 +478,7 @@ func SignUpPost(ctx *context.Context) {
 		return
 	}
 
-	ctx.Data["OAuth2Providers"] = oauth2Providers
+	ctx.Data["OAuth2Providers"] = filterLinuxDoOAuth2Providers(oauth2Providers)
 	context.SetCaptchaData(ctx)
 
 	ctx.Data["PageIsSignUp"] = true

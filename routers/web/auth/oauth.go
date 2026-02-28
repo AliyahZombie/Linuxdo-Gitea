@@ -5,7 +5,6 @@ package auth
 
 import (
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -37,7 +36,16 @@ func SignInOAuth(ctx *context.Context) {
 	authName := ctx.PathParam("provider")
 	authSource, err := auth.GetActiveOAuth2SourceByAuthName(ctx, authName)
 	if err != nil {
-		ctx.ServerError("SignIn", err)
+		ctx.NotFound(err)
+		return
+	}
+	if authSource == nil {
+		ctx.NotFound(nil)
+		return
+	}
+	oauth2Source := authSource.Cfg.(*oauth2.Source)
+	if !oauth2IsLinuxDoConnectOIDC(oauth2Source) {
+		ctx.NotFound(nil)
 		return
 	}
 
@@ -84,12 +92,16 @@ func SignInOAuthCallback(ctx *context.Context) {
 	authName := ctx.PathParam("provider")
 	authSource, err := auth.GetActiveOAuth2SourceByAuthName(ctx, authName)
 	if err != nil {
-		ctx.ServerError("SignIn", err)
+		ctx.NotFound(err)
 		return
 	}
-
 	if authSource == nil {
-		ctx.ServerError("SignIn", errors.New("no valid provider found, check configured callback url in provider"))
+		ctx.NotFound(nil)
+		return
+	}
+	oauth2Source := authSource.Cfg.(*oauth2.Source)
+	if !oauth2IsLinuxDoConnectOIDC(oauth2Source) {
+		ctx.NotFound(nil)
 		return
 	}
 

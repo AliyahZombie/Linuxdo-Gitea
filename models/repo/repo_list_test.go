@@ -4,6 +4,7 @@
 package repo_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -208,8 +209,10 @@ func testSearchRepositoryPublic(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
+	repo12ID := int64(0)
 	if assert.Len(t, repos, 1) {
 		assert.Equal(t, "test_repo_12", repos[0].Name)
+		repo12ID = repos[0].ID
 	}
 	assert.Equal(t, int64(1), count)
 
@@ -225,6 +228,36 @@ func testSearchRepositoryPublic(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), count)
 	assert.Len(t, repos, 2)
+
+	require.NotZero(t, repo12ID)
+	ctx := t.Context()
+	_, err = db.GetEngine(ctx).ID(repo12ID).Cols("min_trust_level").Update(&repo_model.Repository{MinTrustLevel: 1})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		resetCtx := context.Background()
+		_, _ = db.GetEngine(resetCtx).ID(repo12ID).Cols("min_trust_level").Update(&repo_model.Repository{MinTrustLevel: 0})
+	})
+
+	repos, count, err = repo_model.SearchRepositoryByName(ctx, repo_model.SearchRepoOptions{
+		ListOptions: db.ListOptions{Page: 1, PageSize: 10},
+		Keyword:     "repo_12",
+		Collaborate: optional.Some(false),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), count)
+	assert.Empty(t, repos)
+
+	repos, count, err = repo_model.SearchRepositoryByName(ctx, repo_model.SearchRepoOptions{
+		ListOptions: db.ListOptions{Page: 1, PageSize: 10},
+		Keyword:     "repo_12",
+		Actor:       &user_model.User{ID: 2, DiscourseTrustLevel: 1},
+		Collaborate: optional.Some(false),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count)
+	if assert.Len(t, repos, 1) {
+		assert.Equal(t, repo12ID, repos[0].ID)
+	}
 }
 
 func testSearchRepositoryRestricted(t *testing.T) {

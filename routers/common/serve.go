@@ -37,7 +37,7 @@ func ServeBlob(ctx *context.Base, repo *repo_model.Repository, filePath string, 
 	_ = repo.LoadOwner(ctx)
 	httplib.ServeContentByReader(ctx.Req, ctx.Resp, blob.Size(), dataRc, &httplib.ServeHeaderOptions{
 		Filename:      path.Base(filePath),
-		CacheIsPublic: !repo.IsPrivate && repo.Owner != nil && repo.Owner.Visibility == structs.VisibleTypePublic,
+		CacheIsPublic: !repo.IsPrivate && repo.MinTrustLevel <= 0 && repo.Owner != nil && repo.Owner.Visibility == structs.VisibleTypePublic,
 		CacheDuration: setting.StaticCacheTime,
 	})
 	return nil
