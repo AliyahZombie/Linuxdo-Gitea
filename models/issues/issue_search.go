@@ -225,10 +225,23 @@ func applyRepoConditions(sess *xorm.Session, opts *IssuesOptions) {
 		opts.RepoCond = builder.In("issue.repo_id", opts.RepoIDs)
 	}
 	if opts.AllPublic {
+		trustLevel := 0
+		if opts.Doer != nil {
+			trustLevel = opts.Doer.DiscourseTrustLevel
+			if trustLevel < 0 {
+				trustLevel = 0
+			}
+			if trustLevel > 4 {
+				trustLevel = 4
+			}
+		}
 		if opts.RepoCond == nil {
 			opts.RepoCond = builder.NewCond()
 		}
-		opts.RepoCond = opts.RepoCond.Or(builder.In("issue.repo_id", builder.Select("id").From("repository").Where(builder.Eq{"is_private": false})))
+		opts.RepoCond = opts.RepoCond.Or(builder.In("issue.repo_id", builder.Select("id").From("repository").Where(builder.And(
+			builder.Eq{"is_private": false},
+			builder.Lte{"min_trust_level": trustLevel},
+		))))
 	}
 	if opts.RepoCond != nil {
 		sess.And(opts.RepoCond)
@@ -293,6 +306,14 @@ func applyConditions(sess *xorm.Session, opts *IssuesOptions) {
 	}
 
 	if opts.Doer != nil && !opts.Doer.IsAdmin {
+		trustLevel := opts.Doer.DiscourseTrustLevel
+		if trustLevel < 0 {
+			trustLevel = 0
+		}
+		if trustLevel > 4 {
+			trustLevel = 4
+		}
+		sess.And(builder.Lte{"repository.min_trust_level": trustLevel})
 		sess.And(issuePullAccessibleRepoCond("issue.repo_id", opts.Doer.ID, opts.Owner, opts.Team, opts.IsPull.Value()))
 	}
 }
