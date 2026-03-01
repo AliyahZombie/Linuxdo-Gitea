@@ -62,10 +62,7 @@ func httpBase(ctx *context.Context, optGitService ...string) *serviceHandler {
 	username := ctx.PathParam("username")
 	reponame := strings.TrimSuffix(ctx.PathParam("reponame"), ".git")
 
-	if ctx.FormString("go-get") == "1" {
-		context.EarlyResponseForGoGetMeta(ctx)
-		return nil
-	}
+	goGet := ctx.FormString("go-get") == "1"
 
 	var serviceType string
 	var isPull, receivePack bool
@@ -123,6 +120,25 @@ func httpBase(ctx *context.Context, optGitService ...string) *serviceHandler {
 		repoExist = false
 	}
 
+	if goGet {
+		if repoExist {
+			if repo.IsPrivate || repo.MinTrustLevel > 0 || setting.Service.RequireSignInViewStrict {
+				ctx.PlainText(http.StatusNotFound, "Repository not found")
+				return nil
+			}
+			if err := repo.LoadOwner(ctx); err != nil {
+				ctx.ServerError("LoadOwner", err)
+				return nil
+			}
+			if repo.Owner.Visibility != structs.VisibleTypePublic {
+				ctx.PlainText(http.StatusNotFound, "Repository not found")
+				return nil
+			}
+		}
+		context.EarlyResponseForGoGetMeta(ctx)
+		return nil
+	}
+
 	// Don't allow pushing if the repo is archived
 	if repoExist && repo.IsArchived && !isPull {
 		ctx.PlainText(http.StatusForbidden, "This repo is archived. You can view files and clone it, but cannot push or open issues/pull-requests.")
@@ -149,15 +165,7 @@ func httpBase(ctx *context.Context, optGitService ...string) *serviceHandler {
 	if askAuth {
 		// rely on the results of Contexter
 		if !ctx.IsSigned {
-			// TODO: support digit auth - which would be Authorization header with digit
-			if setting.OAuth2.Enabled {
-				// `Basic realm="Gitea"` tells the GCM to use builtin OAuth2 application: https://github.com/git-ecosystem/git-credential-manager/pull/1442
-				ctx.Resp.Header().Set("WWW-Authenticate", `Basic realm="Gitea"`)
-			} else {
-				// If OAuth2 is disabled, then use another realm to avoid GCM OAuth2 attempt
-				ctx.Resp.Header().Set("WWW-Authenticate", `Basic realm="Gitea (Basic Auth)"`)
-			}
-			ctx.HTTPError(http.StatusUnauthorized)
+			ctx.PlainText(http.StatusNotFound, "Repository not found")
 			return nil
 		}
 
