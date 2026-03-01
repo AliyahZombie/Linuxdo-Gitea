@@ -21,6 +21,12 @@ func AuthShared(ctx *context.Base, sessionStore auth_service.SessionStore, authM
 		return ar, err
 	}
 	if ar.Doer != nil {
+		doer, err := user_model.GetPossibleUserByID(ctx, ar.Doer.ID)
+		if err != nil {
+			return ar, err
+		}
+		ar.Doer = doer
+
 		if ctx.Locale.Language() != ar.Doer.Language {
 			ctx.Locale = middleware.Locale(ctx.Resp, ctx.Req)
 		}
