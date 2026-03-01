@@ -4,15 +4,20 @@
 package auth
 
 import (
+	stdctx "context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	asymkey_model "code.gitea.io/gitea/models/asymkey"
 	"code.gitea.io/gitea/models/auth"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/httplib"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/timeutil"
 	"code.gitea.io/gitea/modules/util"
@@ -132,6 +137,71 @@ func oauth2ParseDiscourseTrustLevel(raw any) (trustLevel int, ok bool) {
 	}
 }
 
+func oauth2FindDiscourseTrustLevel(raw any) (trustLevel int, ok bool) {
+	switch v := raw.(type) {
+	case map[string]any:
+		if rawTL, ok := v["trust_level"]; ok {
+			return oauth2ParseDiscourseTrustLevel(rawTL)
+		}
+		if rawTL, ok := v["trustLevel"]; ok {
+			return oauth2ParseDiscourseTrustLevel(rawTL)
+		}
+		for _, vv := range v {
+			if tl, ok := oauth2FindDiscourseTrustLevel(vv); ok {
+				return tl, true
+			}
+		}
+	case []any:
+		for _, vv := range v {
+			if tl, ok := oauth2FindDiscourseTrustLevel(vv); ok {
+				return tl, true
+			}
+		}
+	}
+
+	return 0, false
+}
+
+func oauth2FetchLinuxDoTrustLevel(ctxReqContext stdctx.Context, accessToken string) (trustLevel int, ok bool, err error) {
+	if accessToken == "" {
+		return 0, false, nil
+	}
+
+	resp, err := httplib.NewRequest("https://connect.linux.do/api/user", http.MethodGet).
+		SetContext(ctxReqContext).
+		Header("Accept", "application/json").
+		Header("Authorization", "Bearer "+accessToken).
+		SetReadWriteTimeout(10 * time.Second).
+		Response()
+	if err != nil {
+		return 0, false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return 0, false, fmt.Errorf("linux.do user endpoint status=%d body=%q", resp.StatusCode, string(body))
+	}
+
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	var payload map[string]any
+	if err := dec.Decode(&payload); err != nil {
+		return 0, false, err
+	}
+
+	if raw, ok := payload["trust_level"]; ok {
+		tl, ok := oauth2ParseDiscourseTrustLevel(raw)
+		return tl, ok, nil
+	}
+	if raw, ok := payload["trustLevel"]; ok {
+		tl, ok := oauth2ParseDiscourseTrustLevel(raw)
+		return tl, ok, nil
+	}
+	tl, ok := oauth2FindDiscourseTrustLevel(payload)
+	return tl, ok, nil
+}
+
 func oauth2SignInSync(ctx *context.Context, authSourceID int64, u *user_model.User, gothUser goth.User) {
 	oauth2UpdateAvatarIfNeed(ctx, gothUser.AvatarURL, u)
 
@@ -147,10 +217,23 @@ func oauth2SignInSync(ctx *context.Context, authSourceID int64, u *user_model.Us
 	}
 
 	if oauth2IsLinuxDoConnectOIDC(oauth2Source) {
-		raw, exists := gothUser.RawData["trust_level"]
-		trustLevel, ok := oauth2ParseDiscourseTrustLevel(raw)
-		if exists && !ok {
-			log.Error("Unable to parse OAuth2 user discourse trust level %s: invalid trust_level claim type: %T", gothUser.Provider, raw)
+		trustLevel := 0
+		var ok bool
+		if raw, exists := gothUser.RawData["trust_level"]; exists {
+			trustLevel, ok = oauth2ParseDiscourseTrustLevel(raw)
+			if !ok {
+				log.Warn("Unable to parse OAuth2 user discourse trust level %s: invalid trust_level claim type: %T", gothUser.Provider, raw)
+			}
+		} else {
+			trustLevel, ok = oauth2FindDiscourseTrustLevel(gothUser.RawData)
+		}
+		if !ok {
+			if fetchedTL, fetchedOK, err := oauth2FetchLinuxDoTrustLevel(ctx.Req.Context(), gothUser.AccessToken); err != nil {
+				log.Warn("Unable to fetch linux.do user trust level %s: %v", gothUser.Provider, err)
+			} else if fetchedOK {
+				trustLevel = fetchedTL
+				ok = true
+			}
 		}
 		updatedUnix := timeutil.TimeStampNow()
 
