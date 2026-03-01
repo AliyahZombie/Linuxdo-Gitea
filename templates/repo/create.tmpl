@@ -56,6 +56,17 @@
 					</div>
 					<span class="help">{{ctx.Locale.Tr "repo.visibility_description"}}</span>
 				</div>
+				<div class="inline field">
+					<label>{{ctx.Locale.Tr "repo.min_trust_level"}}</label>
+					<select class="ui dropdown" name="min_trust_level" {{if .IsForcedPrivate}}disabled{{end}}>
+						<option value="0" {{if eq .min_trust_level 0}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.public"}}</option>
+						<option value="1" {{if eq .min_trust_level 1}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl1"}}</option>
+						<option value="2" {{if eq .min_trust_level 2}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl2"}}</option>
+						<option value="3" {{if eq .min_trust_level 3}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl3"}}</option>
+						<option value="4" {{if eq .min_trust_level 4}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.visibility.option.tl4"}}</option>
+					</select>
+					<span class="help">{{ctx.Locale.Tr "repo.min_trust_level_description"}}</span>
+				</div>
 				<div class="inline field {{if .Err_Description}}error{{end}}">
 					<label for="description">{{ctx.Locale.Tr "repo.repo_desc"}}</label>
 					<textarea id="description" rows="2" name="description" placeholder="{{ctx.Locale.Tr "repo.repo_desc_helper"}}" maxlength="2048">{{.description}}</textarea>

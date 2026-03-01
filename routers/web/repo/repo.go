@@ -166,6 +166,11 @@ func Create(ctx *context.Context) {
 
 	ctx.Data["readme"] = "Default"
 	ctx.Data["private"] = getRepoPrivate(ctx)
+	if ctx.Data["private"].(bool) {
+		ctx.Data["min_trust_level"] = 0
+	} else {
+		ctx.Data["min_trust_level"] = 1
+	}
 	ctx.Data["default_branch"] = setting.Repository.DefaultBranch
 	ctx.Data["repo_template_name"] = ctx.Tr("repo.template_select")
 
@@ -217,6 +222,15 @@ func handleCreateError(ctx *context.Context, owner *user_model.User, err error, 
 func CreatePost(ctx *context.Context) {
 	createCommon(ctx)
 	form := web.GetForm(ctx).(*forms.CreateRepoForm)
+	ctx.Data["private"] = form.Private
+	minTrustLevel := form.MinTrustLevel
+	if minTrustLevel < 0 {
+		minTrustLevel = 0
+	}
+	if minTrustLevel > 4 {
+		minTrustLevel = 4
+	}
+	ctx.Data["min_trust_level"] = minTrustLevel
 
 	ctxUser := checkContextUser(ctx, form.UID)
 	if ctx.Written() {
@@ -270,11 +284,21 @@ func CreatePost(ctx *context.Context) {
 
 		repo, err = repo_service.GenerateRepository(ctx, ctx.Doer, ctxUser, templateRepo, opts)
 		if err == nil {
+			if !repo.IsPrivate && !setting.Repository.ForcePrivate {
+				if err := repo_service.SetRepoMinTrustLevel(ctx, repo, minTrustLevel); err != nil {
+					ctx.ServerError("SetRepoMinTrustLevel", err)
+					return
+				}
+			}
 			log.Trace("Repository generated [%d]: %s/%s", repo.ID, ctxUser.Name, repo.Name)
 			ctx.Redirect(repo.Link())
 			return
 		}
 	} else {
+		var minTrustLevelPtr *int
+		if !(form.Private || setting.Repository.ForcePrivate) {
+			minTrustLevelPtr = &minTrustLevel
+		}
 		repo, err = repo_service.CreateRepository(ctx, ctx.Doer, ctxUser, repo_service.CreateRepoOptions{
 			Name:             form.RepoName,
 			Description:      form.Description,
@@ -283,6 +307,7 @@ func CreatePost(ctx *context.Context) {
 			License:          form.License,
 			Readme:           form.Readme,
 			IsPrivate:        form.Private || setting.Repository.ForcePrivate,
+			MinTrustLevel:    minTrustLevelPtr,
 			DefaultBranch:    form.DefaultBranch,
 			AutoInit:         form.AutoInit,
 			IsTemplate:       form.Template,

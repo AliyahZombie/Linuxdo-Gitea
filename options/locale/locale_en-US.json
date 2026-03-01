@@ -968,6 +968,8 @@
   "repo.template_description": "Template repositories let users generate new repositories with the same directory structure, files, and optional settings.",
   "repo.visibility": "Visibility",
   "repo.visibility_description": "Only the owner or the organization members if they have rights, will be able to see it.",
+  "repo.min_trust_level": "Minimum trust level",
+  "repo.min_trust_level_description": "For public repositories, require the viewer to have at least the selected LinuxDO trust level.",
   "repo.visibility_helper": "Make repository private",
   "repo.visibility_helper_forced": "Your site administrator forces new repositories to be private.",
   "repo.visibility_fork_helper": "(Changing this will affect all forks.)",

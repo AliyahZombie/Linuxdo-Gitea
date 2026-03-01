@@ -968,6 +968,8 @@
   "repo.template_description": "模板仓库让用户通过拷贝目录结构，文件和可选设置来生成仓库。",
   "repo.visibility": "可见性",
   "repo.visibility_description": "只有组织所有人或拥有权利的组织成员才能看到。",
+  "repo.min_trust_level": "公开访问最低信任等级",
+  "repo.min_trust_level_description": "对于公开仓库，访问者需要至少达到所选的 LinuxDO 信任等级。",
   "repo.visibility_helper": "将仓库设为私有",
   "repo.visibility_helper_forced": "站点管理员强制要求新仓库为私有。",
   "repo.visibility_fork_helper": "（修改该值将会影响到所有派生仓库）",

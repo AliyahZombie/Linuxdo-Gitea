@@ -23,6 +23,7 @@ type CreateRepoForm struct {
 	UID           int64  `binding:"Required"`
 	RepoName      string `binding:"Required;AlphaDashDot;MaxSize(100)"`
 	Private       bool
+	MinTrustLevel int    `form:"min_trust_level"`
 	Description   string `binding:"MaxSize(2048)"`
 	DefaultBranch string `binding:"GitRefName;MaxSize(100)"`
 	AutoInit      bool
